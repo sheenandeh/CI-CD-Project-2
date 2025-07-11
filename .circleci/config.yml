@@ -1,0 +1,58 @@
+version: 2.1
+
+executors:
+  node-executor:
+    docker:
+      - image: cimg/node:18.18
+    working_directory: ~/app
+
+jobs:
+  install:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm ci
+
+  lint:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+
+  test:
+    executor: node-executor
+    steps:
+      - checkout
+      - run: npm ci
+      - run: npm run test
+
+  docker-build-and-push:
+    docker:
+      - image: cimg/base:stable
+    steps:
+      - checkout
+      - setup_remote_docker
+      - run:
+          name: Build and push Docker image
+          command: |
+            echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+            docker build -t nksusn/cicd-demo-app:latest .
+            docker push nksusn/cicd-demo-app:latest
+
+workflows:
+  version: 2
+  build-test-deploy:
+    jobs:
+      - install
+      - lint:
+          requires:
+            - install
+      - test:
+          requires:
+            - lint
+      - docker-build-and-push:
+          requires:
+            - test
+# new
